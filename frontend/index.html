@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>LUNA-LINK // Orbital Mission Control</title>
+  <meta name="description" content="Lunar south-pole mission planning and scientific visualization platform">
+  <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&family=Noto+Sans+TC:wght@400;500;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+  <script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"}}</script>
+</head>
+<body>
+<div id="boot"><div class="boot-mark">L<span>/</span>L</div><div class="boot-title">LUNAR OPERATIONS SYSTEM</div><div class="boot-bar"><i></i></div><div class="boot-status">INITIALIZING 3D ENVIRONMENT · LOADING TELEMETRY</div></div>
+<div id="app" class="hidden">
+  <header class="topbar">
+    <div class="brand"><div class="brand-emblem">L<span>✦</span></div><div><div class="brand-name">LUNA-LINK <b>///</b></div><div class="brand-sub">LUNAR MISSION INTELLIGENCE PLATFORM</div></div></div>
+    <nav class="main-nav"><button class="nav-btn active" data-view="mission">MISSION CONTROL</button><button class="nav-btn" data-view="terrain">TERRAIN LAB</button><button class="nav-btn" data-view="optimization">OPTIMIZATION</button></nav>
+    <div class="top-status"><span class="live-dot"></span><span>SIMULATION ONLINE</span><span class="utc" id="clock">--:--:-- UTC</span><button class="icon-btn" id="fullscreen" title="Fullscreen">⛶</button></div>
+  </header>
+  <main class="workspace">
+    <aside class="left-panel panel">
+      <div class="panel-head"><span class="eyebrow">MISSION PARAMETERS</span><span class="panel-index">01 / 04</span></div>
+      <div class="section-label">TARGET BODY</div><div class="body-card"><div class="mini-moon"></div><div><strong>THE MOON</strong><small>EARTH'S NATURAL SATELLITE</small></div><span class="tag">LUNA</span></div>
+      <div class="section-label">REGION OF INTEREST</div>
+      <select id="siteSelect" class="control"><option value="Shackleton Rim">Shackleton Crater Rim</option><option value="Malapert Massif">Malapert Massif</option><option value="de Gerlache Rim">de Gerlache Rim</option><option value="Connecting Ridge">Connecting Ridge</option><option value="Leibnitz Beta Plateau">Leibnitz Beta Plateau</option><option value="Peak Near Shackleton">Peak Near Shackleton</option></select>
+      <div class="coord-grid"><div><label>LATITUDE</label><b id="lat">-89.10°</b></div><div><label>LONGITUDE</label><b id="lon">+33.40°</b></div></div>
+      <div class="section-label">SIMULATION EPOCH</div><input id="epoch" class="control" type="datetime-local" value="2026-11-14T12:00">
+      <div class="section-label range-label"><span>TIME SCRUBBER</span><b id="timeValue">12:00:00</b></div><input id="timeSlider" type="range" min="0" max="1440" value="720" step="5">
+      <div class="range-ends"><span>00:00</span><span>24:00 LST</span></div>
+      <div class="section-label">VISUAL LAYERS</div>
+      <label class="toggle-row"><span><i class="layer-dot terrain-dot"></i>Terrain relief</span><input type="checkbox" id="terrainToggle" checked><i class="switch"></i></label>
+      <label class="toggle-row"><span><i class="layer-dot orbit-dot"></i>Orbital trajectory</span><input type="checkbox" id="orbitToggle" checked><i class="switch"></i></label>
+      <label class="toggle-row"><span><i class="layer-dot sun-dot"></i>Solar illumination</span><input type="checkbox" id="sunToggle" checked><i class="switch"></i></label>
+      <label class="toggle-row"><span><i class="layer-dot comm-dot"></i>Earth LOS vector</span><input type="checkbox" id="earthToggle" checked><i class="switch"></i></label>
+      <div class="panel-foot"><span class="tiny-square"></span> DATA MODE <b>SIMULATION / API READY</b></div>
+    </aside>
+
+    <section class="center-stage">
+      <div class="scene-wrap" id="sceneWrap"><div id="three-root"></div>
+        <div class="scene-vignette"></div><div class="scene-title"><span class="eyebrow">LIVE 3D ENVIRONMENT</span><h1>SOUTH POLAR<br><em>THEATER</em></h1><p>MOON · DE421 REFERENCE FRAME</p></div>
+        <div class="scene-coords"><span>CAMERA ALTITUDE</span><b id="cameraAlt">1,240 KM</b><span class="coord-sep">/</span><span>FIELD OF VIEW</span><b>42.0°</b></div>
+        <div class="axis-legend"><span><i class="axis-x"></i>X AXIS</span><span><i class="axis-y"></i>Y AXIS</span><span><i class="axis-z"></i>Z AXIS</span></div>
+        <div class="scene-controls"><button id="resetCamera" title="Reset camera">⌖</button><button id="autoRotate" class="selected" title="Auto rotate">⟳</button><button id="zoomIn">＋</button><button id="zoomOut">－</button></div>
+        <div class="site-callout" id="siteCallout"><span class="callout-line"></span><div><small>SELECTED LANDING ZONE</small><b id="calloutName">SHACKLETON RIM</b><span>ZONE ALPHA · CANDIDATE 01</span></div></div>
+        <div class="scene-bottom"><span><i class="live-dot"></i> RENDER ENGINE <b>THREE.JS WEBGL</b></span><span>DRAG TO ORBIT · SCROLL TO ZOOM</span></div>
+      </div>
+      <div class="telemetry-strip">
+        <div class="telemetry"><label>SOLAR ELEVATION</label><b id="solarElev">+6.82<span>°</span></b><small class="positive">▲ 0.24° / HR</small></div>
+        <div class="telemetry"><label>EARTH ELEVATION</label><b id="earthElev">+4.16<span>°</span></b><small class="positive">DIRECT LOS CANDIDATE</small></div>
+        <div class="telemetry"><label>ILLUMINATION</label><b id="illumination">78.4<span>%</span></b><small>LOCAL HORIZON MODEL</small></div>
+        <div class="telemetry"><label>COMM WINDOW</label><b id="commWindow">92.1<span>%</span></b><small>GEOMETRIC VISIBILITY</small></div>
+        <div class="telemetry"><label>TERRAIN SLOPE</label><b id="slope">4.8<span>°</span></b><small class="positive">LOW SLOPE CLASS</small></div>
+      </div>
+      <div class="lower-grid">
+        <div class="chart-panel panel"><div class="panel-head"><span class="eyebrow">CELESTIAL VISIBILITY PREDICTION</span><span class="tag cyan">24 H WINDOW</span></div><canvas id="timelineChart" height="125"></canvas><div class="chart-legend"><span><i class="legend-sun"></i>SOLAR VISIBILITY</span><span><i class="legend-earth"></i>EARTH VISIBILITY</span><span><i class="legend-shadow"></i>TERRAIN OCCLUSION</span></div></div>
+        <div class="insight-panel panel"><div class="panel-head"><span class="eyebrow">MISSION INTELLIGENCE</span><span class="tag amber">AI / ANALYTICS</span></div><div class="insight-score"><div class="score-ring"><strong id="score">91</strong><small>INDEX</small></div><div><b>LANDING SUITABILITY</b><p>Weighted multi-criteria assessment</p><span class="status-good">● FAVORABLE CANDIDATE</span></div></div><div class="metric-bars"><div><span>Solar access</span><i><b style="width:88%"></b></i><strong>88</strong></div><div><span>Earth LOS</span><i><b style="width:94%"></b></i><strong>94</strong></div><div><span>Terrain safety</span><i><b style="width:91%"></b></i><strong>91</strong></div></div></div>
+      </div>
+    </section>
+
+    <aside class="right-panel panel">
+      <div class="panel-head"><span class="eyebrow">MISSION TELEMETRY</span><span class="panel-index">02 / 04</span></div>
+      <div class="target-card"><div class="target-top"><span class="eyebrow">CELESTIAL TARGET</span><span class="tag green">TRACKED</span></div><div class="earth-thumb"></div><div class="target-name">EARTH <small>399 · SOLAR SYSTEM BARYCENTER</small></div><div class="target-data"><div><label>RANGE</label><b>384,400 <small>KM*</small></b></div><div><label>ANGULAR DIA.</label><b>1.90 <small>DEG*</small></b></div></div><p class="footnote">*Illustrative reference values. Live Horizons ephemeris required for mission-grade values.</p></div>
+      <div class="section-label">MISSION CONSTRAINTS</div>
+      <div class="constraint"><div><span>MIN. SUN ACCESS</span><b>65%</b></div><div class="constraint-track"><i style="width:65%"></i></div></div>
+      <div class="constraint"><div><span>MIN. EARTH VISIBILITY</span><b>70%</b></div><div class="constraint-track"><i style="width:70%"></i></div></div>
+      <div class="constraint"><div><span>MAX. TERRAIN SLOPE</span><b>12°</b></div><div class="constraint-track"><i style="width:40%"></i></div></div>
+      <div class="section-label">CANDIDATE SITES</div><div id="candidateList" class="candidate-list"></div>
+      <button class="primary-btn" id="runOptimization"><span>▶</span> RUN PARETO OPTIMIZATION</button>
+      <div class="api-status"><span class="live-dot amber-dot"></span><span>BACKEND LINK</span><b id="apiState">CHECKING...</b></div>
+      <div class="panel-foot"><span>BUILD</span><b>0.3.0-ORBITAL</b></div>
+    </aside>
+  </main>
+  <footer class="footer"><span>ASTRAFORGE RESEARCH DIVISION <b>×</b> LUNA-LINK</span><span>SCIENTIFIC VISUALIZATION PROTOTYPE · NOT FOR FLIGHT OPERATIONS</span><span>NASA DATA ATTRIBUTION REQUIRED</span></footer>
+</div>
+<div id="toast" class="toast"></div>
+<script type="module" src="app.js"></script>
+</body></html>
