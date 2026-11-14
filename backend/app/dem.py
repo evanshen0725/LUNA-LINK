@@ -5,6 +5,7 @@ Coordinates supplied to terrain_horizon must be in the DEM's native CRS (LOLA
 site products are south-polar stereographic metres, MOON_ME / DE421).
 """
 from pathlib import Path
+from rasterio.enums import Resampling
 import math
 
 class DEMError(RuntimeError):
@@ -102,3 +103,44 @@ def visibility_check(ephemeris, horizon_profile, margin_deg=0.0):
         h=horizon(item["azimuth_deg"])
         result.append({**item,"terrain_horizon_deg":h,"terrain_visible":float(item["elevation_deg"]) > h+margin_deg})
     return result
+
+def get_dem_heightmap(file_path: str, size: int = 128) -> dict:
+    import numpy as np
+    import rasterio
+    from rasterio.enums import Resampling
+
+    with rasterio.open(file_path) as src:
+        data = src.read(
+            1,
+            out_shape=(size, size),
+            resampling=Resampling.bilinear
+        ).astype("float64")
+
+        # 過濾 NoData 以及 NASA LOLA 常見的極端無效值
+        if src.nodata is not None:
+            data = np.where(np.isclose(data, src.nodata), np.nan, data)
+        data = np.where((data < -1e10) | (data > 1e10), np.nan, data)
+
+        # 用有效像素的中位數填補 NaN，避免 JSON 序列化出現 NaN 報 500 錯誤
+        valid_mask = ~np.isnan(data)
+        if not np.any(valid_mask):
+            normalized = np.zeros((size, size), dtype="float64")
+            min_elev, max_elev = 0.0, 0.0
+        else:
+            min_elev = float(np.nanmin(data))
+            max_elev = float(np.nanmax(data))
+            fill_val = float(np.nanmedian(data))
+            data = np.where(valid_mask, data, fill_val)
+
+            if max_elev > min_elev:
+                normalized = (data - min_elev) / (max_elev - min_elev)
+            else:
+                normalized = np.zeros_like(data)
+
+        return {
+            "width": size,
+            "height": size,
+            "min_elevation_m": min_elev,
+            "max_elevation_m": max_elev,
+            "grid": np.round(normalized, 4).tolist()
+        }

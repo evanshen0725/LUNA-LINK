@@ -7,7 +7,7 @@ from .horizons import observer_ephemeris, HorizonsError
 from .config import settings
 
 app = FastAPI(title=settings.app_name, version="0.1.0", description="Lunar south-pole exploration and mission-planning data gateway")
-app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_credentials=False, allow_methods=["*"], allow_headers=["*"])
+app.add_middleware(CORSMiddleware, allow_origins=["http://127.0.0.1:5500", "http://localhost:5500", "*"], allow_credentials=False, allow_methods=["*"], allow_headers=["*"])
 
 @app.get("/api/health")
 def health():
@@ -49,13 +49,15 @@ from pathlib import Path
 from tempfile import gettempdir
 from fastapi import UploadFile, File
 from fastapi.responses import Response
-from .dem import inspect_dem, terrain_horizon, DEMError, visibility_check
+from .dem import inspect_dem, terrain_horizon, DEMError, visibility_check,  get_dem_heightmap
 from .pareto import optimize_sites
 import xml.etree.ElementTree as ET
 from urllib.parse import urlparse
 
 DATA_DIR = Path(__file__).resolve().parents[2] / "data"
 DATA_DIR.mkdir(parents=True, exist_ok=True)
+TERRAIN_LAB_DIR = DATA_DIR / "terrain_lab"
+TERRAIN_LAB_DIR.mkdir(parents=True, exist_ok=True)
 
 @app.post("/api/dem/upload")
 async def upload_dem(file: UploadFile = File(...)):
@@ -81,15 +83,31 @@ async def upload_dem(file: UploadFile = File(...)):
     finally:
         await file.close()
 
+import math
+
+def _clean_json(obj):
+    if isinstance(obj, float):
+        return None if (math.isnan(obj) or math.isinf(obj)) else obj
+    if isinstance(obj, dict):
+        return {k: _clean_json(v) for k, v in obj.items()}
+    if isinstance(obj, list):
+        return [_clean_json(v) for v in obj]
+    return obj
+
 @app.get("/api/dem/catalog")
 def dem_catalog():
     files = []
     for p in sorted(DATA_DIR.glob("*.tif")) + sorted(DATA_DIR.glob("*.tiff")):
-        try: files.append(inspect_dem(str(p)))
-        except Exception as exc: files.append({"filename": p.name, "error": str(exc)})
-    return {"directory": str(DATA_DIR), "items": files,
-            "official_products": "https://pgda.gsfc.nasa.gov/data/LOLA_5mpp/",
-            "note": "The 5 m/pixel products use south-polar stereographic X/Y metres in MOON_ME / DE421. Confirm metadata before analysis."}
+        try:
+            files.append(_clean_json(inspect_dem(str(p))))
+        except Exception as exc:
+            files.append({"filename": p.name, "error": str(exc)})
+    return {
+        "directory": str(DATA_DIR),
+        "items": files,
+        "official_products": "https://pgda.gsfc.nasa.gov/data/LOLA_5mpp/",
+        "note": "The 5 m/pixel products use south-polar stereographic X/Y metres in MOON_ME / DE421. Confirm metadata before analysis."
+    }
 
 @app.get("/api/dem/inspect")
 def dem_inspect(filename: str = Query(..., min_length=1)):
@@ -153,3 +171,23 @@ async def wmts_capabilities(url: str = Query(..., description="Exact NASA Trek W
                 "note":"Use the ResourceURL template and matching TileMatrixSet/CRS. South-polar stereographic tiles cannot be overlaid as ordinary Web Mercator without reprojection."}
     except (httpx.HTTPError, ET.ParseError) as exc:
         raise HTTPException(status_code=502, detail=f"WMTS capabilities retrieval/parse failed: {exc}")
+
+@app.get("/api/dem/heightmap/{filename}")
+def api_dem_heightmap(filename: str, size: int = 128):
+    file_path = DEM_DIR / filename
+    if not file_path.exists():
+        raise HTTPException(status_code=404, detail="DEM file not found")
+    return get_dem_heightmap(str(file_path), size=size)
+
+@app.get("/api/dem/heightmap")
+def dem_heightmap(filename: str = Query(..., min_length=1), size: int = Query(128, ge=16, le=512)):
+    p = (TERRAIN_LAB_DIR / Path(filename).name).resolve()
+    if p.parent != TERRAIN_LAB_DIR.resolve():
+        raise HTTPException(status_code=400, detail="Invalid filename")
+    if not p.exists():
+        raise HTTPException(status_code=404, detail="DEM file not found")
+    try:
+        return get_dem_heightmap(str(p), size=size)
+    except DEMError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+
