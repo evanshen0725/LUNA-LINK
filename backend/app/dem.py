@@ -107,7 +107,6 @@ def visibility_check(ephemeris, horizon_profile, margin_deg=0.0):
 def get_dem_heightmap(file_path: str, size: int = 128) -> dict:
     import numpy as np
     import rasterio
-    from rasterio.enums import Resampling
 
     with rasterio.open(file_path) as src:
         data = src.read(

@@ -6,3 +6,4 @@ __pycache__/
 .data/
 *.tif
 *.tiff
+!data/terrain_lab/*.tif
