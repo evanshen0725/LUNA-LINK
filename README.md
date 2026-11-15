@@ -25,6 +25,7 @@ LUNA-LINK is an independent student research prototype for exploring lunar south
 - `POST /api/dem/upload` — upload and inspect a GeoTIFF.
 - `GET /api/dem/catalog` — list uploaded DEMs.
 - `GET /api/dem/inspect` — inspect a DEM by filename.
+- `GET /api/dem/heightmap` — downsample and normalize a GeoTIFF DEM into an elevation grid for 3D Three.js mesh rendering.
 - `GET /api/dem/horizon` — sample terrain horizon by azimuth in the DEM's native CRS.
 - `POST /api/dem/visibility` — compare supplied ephemeris azimuth/elevation with terrain horizon.
 - `POST /api/optimization/pareto` — discrete-candidate NSGA-II baseline.
